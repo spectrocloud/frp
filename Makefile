@@ -20,10 +20,14 @@ fmt:
 	go fmt ./...
 
 frps:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
+	docker build . -t gcr.io/spectro-common-dev/ra/frps:latest -f .local/frps/Dockerfile
+	docker push gcr.io/spectro-common-dev/ra/frps:latest
 
 frpc:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
+	docker build . -t gcr.io/spectro-common-dev/ra/frpc:latest -f .local/frpc/Dockerfile
+	docker push gcr.io/spectro-common-dev/ra/frpc:latest
 
 test: gotest
 
