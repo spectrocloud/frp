@@ -37,9 +37,9 @@ type HTTPS2HTTPSCertsPlugin struct {
 func NewHTTPS2HTTPSCertsPlugin(params map[string]string) (Plugin, error) {
 	crtPath := params["plugin_crt_path"]
 	keyPath := params["plugin_key_path"]
-	localServerCAPath := params["local_server_ca_path"]
-	localServerCrtPath := params["local_server_crt_path"]
-	localServerKeyPath := params["local_server_key_path"]
+	localServerCAPath := params["plugin_local_server_ca_path"]
+	localServerCrtPath := params["plugin_local_server_crt_path"]
+	localServerKeyPath := params["plugin_local_server_key_path"]
 	localAddr := params["plugin_local_addr"]
 	hostHeaderRewrite := params["plugin_host_header_rewrite"]
 
@@ -60,13 +60,13 @@ func NewHTTPS2HTTPSCertsPlugin(params map[string]string) (Plugin, error) {
 		return nil, fmt.Errorf("plugin_key_path is required")
 	}
 	if localServerCAPath == "" {
-		return nil, fmt.Errorf("local_server_ca_path is required")
+		return nil, fmt.Errorf("plugin_local_server_ca_path is required")
 	}
 	if localServerCrtPath == "" {
-		return nil, fmt.Errorf("local_server_crt_path is required")
+		return nil, fmt.Errorf("plugin_local_server_crt_path is required")
 	}
 	if localServerKeyPath == "" {
-		return nil, fmt.Errorf("local_server_key_path is required")
+		return nil, fmt.Errorf("plugin_local_server_key_path is required")
 	}
 	if localAddr == "" {
 		return nil, fmt.Errorf("plugin_local_addr is required")

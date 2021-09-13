@@ -1,6 +1,8 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO111MODULE=on
 LDFLAGS := -s -w
+FRPC_IMG ?= "gcr.io/spectro-common-dev/${USER}/frpc:latest"
+FRPS_IMG ?= "gcr.io/spectro-common-dev/${USER}/frps:latest"
 
 all: fmt build
 
@@ -20,14 +22,18 @@ fmt:
 	go fmt ./...
 
 frps:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
-	docker build . -t gcr.io/spectro-common-dev/ra/frps:latest -f .local/frps/Dockerfile
-	docker push gcr.io/spectro-common-dev/ra/frps:latest
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
+
+docker-frps:
+	docker build . -t ${FRPS_IMG} -f build/frps/Dockerfile
+	docker push ${FRPS_IMG}
 
 frpc:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
-	docker build . -t gcr.io/spectro-common-dev/ra/frpc:latest -f .local/frpc/Dockerfile
-	docker push gcr.io/spectro-common-dev/ra/frpc:latest
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
+
+docker-frpc:
+	docker build . -t ${FRPC_IMG} -f build/frpc/Dockerfile
+	docker push ${FRPC_IMG}
 
 test: gotest
 
