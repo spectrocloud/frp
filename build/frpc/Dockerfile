@@ -1,5 +1,7 @@
 # Build the manager binary
+
 FROM golang:1.19.4 as builder
+
 
 ADD .netrc /root/.netrc
 
@@ -24,4 +26,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o frpc cmd
 FROM gcr.io/distroless/static:latest
 WORKDIR /
 COPY --from=builder /workspace/frpc .
+
 ENTRYPOINT ["/frpc"]
