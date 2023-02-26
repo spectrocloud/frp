@@ -1,5 +1,6 @@
 # Build the manager binary
-FROM golang:1.19 as builder
+
+FROM golang:1.19.4 as builder
 
 ADD .netrc /root/.netrc
 
@@ -17,11 +18,12 @@ RUN go mod download
 COPY . .
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o frps cmd/frps/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o frps cmd/frps/*.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:latest
 WORKDIR /
 COPY --from=builder /workspace/frps .
+
 ENTRYPOINT ["/frps"]
