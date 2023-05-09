@@ -68,7 +68,10 @@ func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS12,
+		},
 	}
 
 	rp := &httputil.ReverseProxy{
