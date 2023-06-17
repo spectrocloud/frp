@@ -35,6 +35,8 @@ docker-frpc:
 	docker build . -t ${FRPC_IMG} -f build/frpc/Dockerfile
 	docker push ${FRPC_IMG}
 
+docker: docker-frpc docker-frps
+
 test: gotest
 
 gotest:
