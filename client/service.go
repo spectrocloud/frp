@@ -263,6 +263,8 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	if svr.cfg.ConnectServerLocalIP != "" {
 		dialOptions = append(dialOptions, libdial.WithLocalAddr(svr.cfg.ConnectServerLocalIP))
 	}
+	tlsConfig.MinVersion = tls.VersionTLS12
+	fmt.Printf("Using the folowing tls conf %v", tlsConfig.MaxVersion)
 	dialOptions = append(dialOptions,
 		libdial.WithProtocol(protocol),
 		libdial.WithTimeout(time.Duration(svr.cfg.DialServerTimeout)*time.Second),

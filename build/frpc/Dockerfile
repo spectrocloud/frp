@@ -1,6 +1,6 @@
 # Build the manager binary
 
-FROM golang:1.19.4 as builder
+FROM --platform=linux/amd64 golang:1.19.8-alpine3.17 as builder
 
 
 ADD .netrc /root/.netrc
