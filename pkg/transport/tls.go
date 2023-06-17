@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
+	"log"
 	"math/big"
 	"os"
 )
@@ -84,7 +86,9 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 		base.ClientAuth = tls.RequireAndVerifyClientCert
 		base.ClientCAs = pool
 	}
-
+	base.MinVersion = tls.VersionTLS12
+	fmt.Println(fmt.Sprintf("Version to use is %v", base.MinVersion))
+	log.Printf("Version to use is %v", base.MinVersion)
 	return base, nil
 }
 

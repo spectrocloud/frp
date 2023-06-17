@@ -1,8 +1,8 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO111MODULE=on
 LDFLAGS := -s -w
-FRPC_IMG ?= "gcr.io/spectro-common-dev/${USER}/frpc:latest"
-FRPS_IMG ?= "gcr.io/spectro-common-dev/${USER}/frps:latest"
+FRPC_IMG ?= "gcr.io/spectro-automation/arvind/frpc:4.0.4"
+FRPS_IMG ?= "gcr.io/spectro-automation/arvind/frps:4.0.4"
 
 all: fmt build
 
