@@ -3,6 +3,7 @@ export GO111MODULE=on
 LDFLAGS := -s -w
 FRPC_IMG ?= "gcr.io/spectro-common-dev/${USER}/frpc:latest"
 FRPS_IMG ?= "gcr.io/spectro-common-dev/${USER}/frps:latest"
+TARGETARCH ?= amd64
 
 all: fmt build
 
@@ -24,15 +25,41 @@ vet:
 frps:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
 
+ARCHS ?= amd64 arm64
+
 docker-frps:
-	docker build . -t ${FRPS_IMG} -f build/frps/Dockerfile
+	docker buildx build --platform linux/${TARGETARCH} --load . -t ${FRPS_IMG} -f build/frps/Dockerfile
 	docker push ${FRPS_IMG}
+
+docker-cross: docker-build-cross docker-push-cross docker-manifest-cross-arch
+
+docker-build-cross:
+	for arch in ${ARCHS} ; do \
+		docker buildx build --platform linux/$$arch --load . -t ${FRPS_IMG}-linux-$$arch -f build/frps/Dockerfile ; \
+		docker buildx build --platform linux/$$arch --load . -t ${FRPC_IMG}-linux-$$arch -f build/frps/Dockerfile ; \
+	done
+
+docker-push-cross:
+	for arch in ${ARCHS} ; do \
+		docker push ${FRPS_IMG}-linux-$$arch ; \
+		docker push ${FRPC_IMG}-linux-$$arch ; \
+	done
+
+docker-manifest-cross-arch:
+	for arch in ${ARCHS} ; do \
+		docker manifest create --amend ${FRPS_IMG} ${FRPS_IMG}-linux-$$arch ; \
+		docker manifest annotate ${FRPS_IMG} ${FRPS_IMG}-linux-$$arch --arch $$arch ; \
+		docker manifest create --amend ${FRPC_IMG} ${FRPC_IMG}-linux-$$arch ; \
+		docker manifest annotate ${FRPC_IMG} ${FRPC_IMG}-linux-$$arch --arch $$arch ; \
+	done
+	docker manifest push ${FRPS_IMG}
+	docker manifest push ${FRPC_IMG}
 
 frpc:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
 
 docker-frpc:
-	docker build . -t ${FRPC_IMG} -f build/frpc/Dockerfile
+	docker buildx build --platform linux/${TARGETARCH} --load . -t ${FRPC_IMG} -f build/frpc/Dockerfile
 	docker push ${FRPC_IMG}
 
 test: gotest
