@@ -1,9 +1,14 @@
 # Build the manager binary
 
-FROM golang:1.19.4 as builder
+FROM --platform=$TARGETPLATFORM gcr.io/spectro-images-public/golang:1.19-alpine as builder
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG CRYPTO_LIB
+ENV GOEXPERIMENT=${CRYPTO_LIB:+boringcrypto}
+
+RUN apk update
+RUN apk add curl git gcc g++ 
 
 ADD .netrc /root/.netrc
 
@@ -21,7 +26,12 @@ RUN go mod download
 COPY . .
 
 # Build
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o frpc cmd/frpc/main.go
+RUN if [ ${CRYPTO_LIB} ]; \
+    then \
+    CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -ldflags "-linkmode=external -extldflags=-static" -a -o frpc cmd/frpc/main.go; \
+    else \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o frpc cmd/frpc/main.go; \
+    fi
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details

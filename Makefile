@@ -1,9 +1,15 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO111MODULE=on
 LDFLAGS := -s -w
-FRPC_IMG ?= "gcr.io/spectro-common-dev/${USER}/frpc:latest"
-FRPS_IMG ?= "gcr.io/spectro-common-dev/${USER}/frps:latest"
 TARGETARCH ?= amd64
+FRPC_IMG ?= "gcr.io/spectro-dev-public/${USER}/frpc:latest"
+FRPS_IMG ?= "gcr.io/spectro-dev-public/${USER}/frps:latest"
+FIPS_ENABLE ?= ""
+ifeq ($(FIPS_ENABLE),yes)
+	FRPC_IMG := "gcr.io/spectro-dev-public/${USER}/fips/frpc:latest"
+	FRPS_IMG := "gcr.io/spectro-dev-public/${USER}/fips/frps:latest"
+endif
+
 
 all: fmt build
 
@@ -31,29 +37,13 @@ docker-frps:
 	docker buildx build --platform linux/${TARGETARCH} --load . -t ${FRPS_IMG} -f build/frps/Dockerfile
 	docker push ${FRPS_IMG}
 
-docker-cross: docker-build-cross docker-push-cross docker-manifest-cross-arch
+docker-cross: docker-build-cross-frpc docker-build-cross-frps
 
-docker-build-cross:
-	for arch in ${ARCHS} ; do \
-		docker buildx build --platform linux/$$arch --load . -t ${FRPS_IMG}-linux-$$arch -f build/frps/Dockerfile ; \
-		docker buildx build --platform linux/$$arch --load . -t ${FRPC_IMG}-linux-$$arch -f build/frps/Dockerfile ; \
-	done
+docker-build-cross-frps:
+	docker buildx build --platform linux/amd64,linux/arm64 --push . -t ${FRPS_IMG} --build-arg CRYPTO_LIB=${FIPS_ENABLE} -f build/frps/Dockerfile
 
-docker-push-cross:
-	for arch in ${ARCHS} ; do \
-		docker push ${FRPS_IMG}-linux-$$arch ; \
-		docker push ${FRPC_IMG}-linux-$$arch ; \
-	done
-
-docker-manifest-cross-arch:
-	for arch in ${ARCHS} ; do \
-		docker manifest create --amend ${FRPS_IMG} ${FRPS_IMG}-linux-$$arch ; \
-		docker manifest annotate ${FRPS_IMG} ${FRPS_IMG}-linux-$$arch --arch $$arch ; \
-		docker manifest create --amend ${FRPC_IMG} ${FRPC_IMG}-linux-$$arch ; \
-		docker manifest annotate ${FRPC_IMG} ${FRPC_IMG}-linux-$$arch --arch $$arch ; \
-	done
-	docker manifest push ${FRPS_IMG}
-	docker manifest push ${FRPC_IMG}
+docker-build-cross-frpc:
+	docker buildx build --platform linux/amd64,linux/arm64 --push . -t ${FRPC_IMG} --build-arg CRYPTO_LIB=${FIPS_ENABLE} -f build/frpc/Dockerfile
 
 frpc:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
