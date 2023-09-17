@@ -1,8 +1,15 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO111MODULE=on
 LDFLAGS := -s -w
-FRPC_IMG ?= "gcr.io/spectro-common-dev/${USER}/frpc:latest"
-FRPS_IMG ?= "gcr.io/spectro-common-dev/${USER}/frps:latest"
+TARGETARCH ?= amd64
+FRPC_IMG ?= "gcr.io/spectro-dev-public/${USER}/frpc:latest"
+FRPS_IMG ?= "gcr.io/spectro-dev-public/${USER}/frps:latest"
+FIPS_ENABLE ?= ""
+ifeq ($(FIPS_ENABLE),yes)
+	FRPC_IMG := "gcr.io/spectro-dev-public/${USER}/fips/frpc:latest"
+	FRPS_IMG := "gcr.io/spectro-dev-public/${USER}/fips/frps:latest"
+endif
+
 
 all: fmt build
 
@@ -24,15 +31,25 @@ vet:
 frps:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
 
+ARCHS ?= amd64 arm64
+
 docker-frps:
-	docker build . -t ${FRPS_IMG} -f build/frps/Dockerfile
+	docker buildx build --platform linux/${TARGETARCH} --load . -t ${FRPS_IMG} -f build/frps/Dockerfile
 	docker push ${FRPS_IMG}
+
+docker-cross: docker-build-cross-frpc docker-build-cross-frps
+
+docker-build-cross-frps:
+	docker buildx build --platform linux/amd64,linux/arm64 --push . -t ${FRPS_IMG} --build-arg CRYPTO_LIB=${FIPS_ENABLE} -f build/frps/Dockerfile
+
+docker-build-cross-frpc:
+	docker buildx build --platform linux/amd64,linux/arm64 --push . -t ${FRPC_IMG} --build-arg CRYPTO_LIB=${FIPS_ENABLE} -f build/frpc/Dockerfile
 
 frpc:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
 
 docker-frpc:
-	docker build . -t ${FRPC_IMG} -f build/frpc/Dockerfile
+	docker buildx build --platform linux/${TARGETARCH} --load . -t ${FRPC_IMG} -f build/frpc/Dockerfile
 	docker push ${FRPC_IMG}
 
 test: gotest
