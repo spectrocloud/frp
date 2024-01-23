@@ -75,7 +75,10 @@ func NewHTTPS2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS12,
+		},
 	}
 
 	rp := &httputil.ReverseProxy{
@@ -109,6 +112,9 @@ func NewHTTPS2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gen TLS config error: %v", err)
 	}
+	if tlsConfig != nil {
+		tlsConfig.MinVersion = tls.VersionTLS12
+	}
 	ln := tls.NewListener(listener, tlsConfig)
 
 	go p.s.Serve(ln)
@@ -121,7 +127,10 @@ func (p *HTTPS2HTTPSPlugin) genTLSConfig() (*tls.Config, error) {
 		return nil, err
 	}
 
-	config := &tls.Config{Certificates: []tls.Certificate{cert}}
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
 	return config, nil
 }
 
