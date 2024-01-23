@@ -27,6 +27,7 @@ func TestGetHTTPSHostname(t *testing.T) {
 		tls.Dial("tcp", l.Addr().String(), &tls.Config{
 			InsecureSkipVerify: true,
 			ServerName:         "example.com",
+			MinVersion:         tls.VersionTLS12,
 		})
 	}()
 
