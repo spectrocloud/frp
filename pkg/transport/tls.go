@@ -89,7 +89,9 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 }
 
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
-	var base = &tls.Config{}
+	var base = &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	if certPath == "" || keyPath == "" {
 		// client will not generate tls conf by itself
