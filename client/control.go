@@ -233,6 +233,10 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 				xl.Warn("fail to build tls configuration when connecting to server, err: %v", err)
 				return
 			}
+
+			if tlsConfig != nil {
+				tlsConfig.MinVersion = tls.VersionTLS12
+			}
 		}
 
 		proxyType, addr, auth, err := libdial.ParseProxyURL(ctl.clientCfg.HTTPProxy)

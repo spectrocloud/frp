@@ -247,6 +247,10 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 			xl.Warn("fail to build tls configuration when service login, err: %v", err)
 			return
 		}
+
+		if tlsConfig != nil {
+			tlsConfig.MinVersion = tls.VersionTLS12
+		}
 	}
 
 	proxyType, addr, auth, err := libdial.ParseProxyURL(svr.cfg.HTTPProxy)
