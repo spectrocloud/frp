@@ -1,8 +1,4 @@
-### New
+### Features
 
-* Use auto generated certificates if `plugin_key_path` and `plugin_crt_path` are empty for plugin `https2https` and `https2http`.
-* Server dashboard supports TLS configs.
-
-### Fix
-
-* xtcp error with IPv6 address.
+* The frpc visitor command-line parameter adds the `--server-user` option to specify the username of the server-side proxy to connect to.
+* Support multiple frpc instances with different subjects when using oidc authentication.

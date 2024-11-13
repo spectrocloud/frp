@@ -55,7 +55,7 @@ func NewFakeUDPConn(l *UDPListener, laddr, raddr net.Addr) *FakeUDPConn {
 		for {
 			time.Sleep(5 * time.Second)
 			fc.mu.RLock()
-			if time.Now().Sub(fc.lastActive) > 10*time.Second {
+			if time.Since(fc.lastActive) > 10*time.Second {
 				fc.mu.RUnlock()
 				fc.Close()
 				break
@@ -68,8 +68,7 @@ func NewFakeUDPConn(l *UDPListener, laddr, raddr net.Addr) *FakeUDPConn {
 
 func (c *FakeUDPConn) putPacket(content []byte) {
 	defer func() {
-		if err := recover(); err != nil {
-		}
+		_ = recover()
 	}()
 
 	select {
@@ -109,7 +108,7 @@ func (c *FakeUDPConn) Write(b []byte) (n int, err error) {
 		LocalAddr:  c.localAddr,
 		RemoteAddr: c.remoteAddr,
 	}
-	c.l.writeUDPPacket(packet)
+	_ = c.l.writeUDPPacket(packet)
 
 	c.mu.Lock()
 	c.lastActive = time.Now()
@@ -141,15 +140,15 @@ func (c *FakeUDPConn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func (c *FakeUDPConn) SetDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (c *FakeUDPConn) SetReadDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (c *FakeUDPConn) SetWriteDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -208,7 +207,7 @@ func ListenUDP(bindAddr string, bindPort int) (l *UDPListener, err error) {
 			}
 
 			if addr, ok := packet.RemoteAddr.(*net.UDPAddr); ok {
-				readConn.WriteToUDP(packet.Buf, addr)
+				_, _ = readConn.WriteToUDP(packet.Buf, addr)
 			}
 		}
 	}()
@@ -257,3 +256,11 @@ func (l *UDPListener) Close() error {
 func (l *UDPListener) Addr() net.Addr {
 	return l.addr
 }
+
+// ConnectedUDPConn is a wrapper for net.UDPConn which converts WriteTo syscalls
+// to Write syscalls that are 4 times faster on some OS'es. This should only be
+// used for connections that were produced by a net.Dial* call.
+type ConnectedUDPConn struct{ *net.UDPConn }
+
+// WriteTo redirects all writes to the Write syscall, which is 4 times faster.
+func (c *ConnectedUDPConn) WriteTo(b []byte, _ net.Addr) (int, error) { return c.Write(b) }

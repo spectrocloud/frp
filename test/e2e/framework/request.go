@@ -11,7 +11,7 @@ import (
 
 func SpecifiedHTTPBodyHandler(body []byte) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}
 }
 
@@ -20,7 +20,7 @@ func ExpectResponseCode(code int) EnsureFunc {
 		if resp.Code == code {
 			return true
 		}
-		flog.Warn("Expect code %d, but got %d", code, resp.Code)
+		flog.Warnf("Expect code %d, but got %d", code, resp.Code)
 		return false
 	}
 }
@@ -111,14 +111,14 @@ func (e *RequestExpect) Ensure(fns ...EnsureFunc) {
 
 	if len(fns) == 0 {
 		if !bytes.Equal(e.expectResp, ret.Content) {
-			flog.Trace("Response info: %+v", ret)
+			flog.Tracef("Response info: %+v", ret)
 		}
-		ExpectEqualValuesWithOffset(1, ret.Content, e.expectResp, e.explain...)
+		ExpectEqualValuesWithOffset(1, string(ret.Content), string(e.expectResp), e.explain...)
 	} else {
 		for _, fn := range fns {
 			ok := fn(ret)
 			if !ok {
-				flog.Trace("Response info: %+v", ret)
+				flog.Tracef("Response info: %+v", ret)
 			}
 			ExpectTrueWithOffset(1, ok, e.explain...)
 		}

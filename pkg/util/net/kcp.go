@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	kcp "github.com/fatedier/kcp-go"
+	kcp "github.com/xtaci/kcp-go/v5"
 )
 
 type KCPListener struct {
@@ -32,8 +32,8 @@ func ListenKcp(address string) (l *KCPListener, err error) {
 	if err != nil {
 		return l, err
 	}
-	listener.SetReadBuffer(4194304)
-	listener.SetWriteBuffer(4194304)
+	_ = listener.SetReadBuffer(4194304)
+	_ = listener.SetWriteBuffer(4194304)
 
 	l = &KCPListener{
 		listener:  listener,
@@ -85,7 +85,15 @@ func (l *KCPListener) Addr() net.Addr {
 }
 
 func NewKCPConnFromUDP(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
-	kcpConn, err := kcp.NewConnEx(1, connected, raddr, nil, 10, 3, conn)
+	udpAddr, err := net.ResolveUDPAddr("udp", raddr)
+	if err != nil {
+		return nil, err
+	}
+	var pConn net.PacketConn = conn
+	if connected {
+		pConn = &ConnectedUDPConn{conn}
+	}
+	kcpConn, err := kcp.NewConn3(1, udpAddr, nil, 10, 3, pConn)
 	if err != nil {
 		return nil, err
 	}

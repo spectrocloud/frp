@@ -20,11 +20,11 @@ import (
 	"net"
 	"sync"
 
-	"github.com/fatedier/frp/pkg/consts"
+	gerr "github.com/fatedier/golib/errors"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/util/tcpmux"
 	"github.com/fatedier/frp/pkg/util/vhost"
-
-	gerr "github.com/fatedier/golib/errors"
 )
 
 // TCPMuxGroupCtl manage all TCPMuxGroups
@@ -51,7 +51,6 @@ func (tmgc *TCPMuxGroupCtl) Listen(
 	multiplexer, group, groupKey string,
 	routeConfig vhost.RouteConfig,
 ) (l net.Listener, err error) {
-
 	tmgc.mu.Lock()
 	tcpMuxGroup, ok := tmgc.groups[group]
 	if !ok {
@@ -60,8 +59,8 @@ func (tmgc *TCPMuxGroupCtl) Listen(
 	}
 	tmgc.mu.Unlock()
 
-	switch multiplexer {
-	case consts.HTTPConnectTCPMultiplexer:
+	switch v1.TCPMultiplexerType(multiplexer) {
+	case v1.TCPMultiplexerHTTPConnect:
 		return tcpMuxGroup.HTTPConnectListen(ctx, group, groupKey, routeConfig)
 	default:
 		err = fmt.Errorf("unknown multiplexer [%s]", multiplexer)
@@ -82,9 +81,10 @@ type TCPMuxGroup struct {
 	groupKey        string
 	domain          string
 	routeByHTTPUser string
+	username        string
+	password        string
 
 	acceptCh chan net.Conn
-	index    uint64
 	tcpMuxLn net.Listener
 	lns      []*TCPMuxGroupListener
 	ctl      *TCPMuxGroupCtl
@@ -108,7 +108,6 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 	group, groupKey string,
 	routeConfig vhost.RouteConfig,
 ) (ln *TCPMuxGroupListener, err error) {
-
 	tmg.mu.Lock()
 	defer tmg.mu.Unlock()
 	if len(tmg.lns) == 0 {
@@ -123,6 +122,8 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 		tmg.groupKey = groupKey
 		tmg.domain = routeConfig.Domain
 		tmg.routeByHTTPUser = routeConfig.RouteByHTTPUser
+		tmg.username = routeConfig.Username
+		tmg.password = routeConfig.Password
 		tmg.tcpMuxLn = tcpMuxLn
 		tmg.lns = append(tmg.lns, ln)
 		if tmg.acceptCh == nil {
@@ -131,7 +132,10 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 		go tmg.worker()
 	} else {
 		// route config in the same group must be equal
-		if tmg.group != group || tmg.domain != routeConfig.Domain || tmg.routeByHTTPUser != routeConfig.RouteByHTTPUser {
+		if tmg.group != group || tmg.domain != routeConfig.Domain ||
+			tmg.routeByHTTPUser != routeConfig.RouteByHTTPUser ||
+			tmg.username != routeConfig.Username ||
+			tmg.password != routeConfig.Password {
 			return nil, ErrGroupParamsInvalid
 		}
 		if tmg.groupKey != groupKey {

@@ -12,62 +12,67 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !frps
+
 package plugin
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	libio "github.com/fatedier/golib/io"
+	libnet "github.com/fatedier/golib/net"
 
-	frpIo "github.com/fatedier/golib/io"
-	gnet "github.com/fatedier/golib/net"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
 )
 
-const PluginHTTPProxy = "http_proxy"
-
 func init() {
-	Register(PluginHTTPProxy, NewHTTPProxyPlugin)
+	Register(v1.PluginHTTPProxy, NewHTTPProxyPlugin)
 }
 
 type HTTPProxy struct {
-	l          *Listener
-	s          *http.Server
-	AuthUser   string
-	AuthPasswd string
+	opts *v1.HTTPProxyPluginOptions
+
+	l *Listener
+	s *http.Server
 }
 
-func NewHTTPProxyPlugin(params map[string]string) (Plugin, error) {
-	user := params["plugin_http_user"]
-	passwd := params["plugin_http_passwd"]
+func NewHTTPProxyPlugin(options v1.ClientPluginOptions) (Plugin, error) {
+	opts := options.(*v1.HTTPProxyPluginOptions)
 	listener := NewProxyListener()
 
 	hp := &HTTPProxy{
-		l:          listener,
-		AuthUser:   user,
-		AuthPasswd: passwd,
+		l:    listener,
+		opts: opts,
 	}
 
 	hp.s = &http.Server{
-		Handler: hp,
+		Handler:           hp,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 
-	go hp.s.Serve(listener)
+	go func() {
+		_ = hp.s.Serve(listener)
+	}()
 	return hp, nil
 }
 
 func (hp *HTTPProxy) Name() string {
-	return PluginHTTPProxy
+	return v1.PluginHTTPProxy
 }
 
-func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
-	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
+func (hp *HTTPProxy) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 
-	sc, rd := gnet.NewSharedConn(wrapConn)
+	sc, rd := libnet.NewSharedConn(wrapConn)
 	firstBytes := make([]byte, 7)
 	_, err := rd.Read(firstBytes)
 	if err != nil {
@@ -82,12 +87,11 @@ func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBuf
 			wrapConn.Close()
 			return
 		}
-		hp.handleConnectReq(request, frpIo.WrapReadWriteCloser(bufRd, wrapConn, wrapConn.Close))
+		hp.handleConnectReq(request, libio.WrapReadWriteCloser(bufRd, wrapConn, wrapConn.Close))
 		return
 	}
 
-	hp.l.PutConn(sc)
-	return
+	_ = hp.l.PutConn(sc)
 }
 
 func (hp *HTTPProxy) Close() error {
@@ -153,13 +157,13 @@ func (hp *HTTPProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 		client.Close()
 		return
 	}
-	client.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	_, _ = client.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
-	go frpIo.Join(remote, client)
+	go libio.Join(remote, client)
 }
 
 func (hp *HTTPProxy) Auth(req *http.Request) bool {
-	if hp.AuthUser == "" && hp.AuthPasswd == "" {
+	if hp.opts.HTTPUser == "" && hp.opts.HTTPPassword == "" {
 		return true
 	}
 
@@ -178,7 +182,9 @@ func (hp *HTTPProxy) Auth(req *http.Request) bool {
 		return false
 	}
 
-	if pair[0] != hp.AuthUser || pair[1] != hp.AuthPasswd {
+	if !util.ConstantTimeEqString(pair[0], hp.opts.HTTPUser) ||
+		!util.ConstantTimeEqString(pair[1], hp.opts.HTTPPassword) {
+		time.Sleep(200 * time.Millisecond)
 		return false
 	}
 	return true
@@ -188,7 +194,10 @@ func (hp *HTTPProxy) handleConnectReq(req *http.Request, rwc io.ReadWriteCloser)
 	defer rwc.Close()
 	if ok := hp.Auth(req); !ok {
 		res := getBadResponse()
-		res.Write(rwc)
+		_ = res.Write(rwc)
+		if res.Body != nil {
+			res.Body.Close()
+		}
 		return
 	}
 
@@ -200,12 +209,12 @@ func (hp *HTTPProxy) handleConnectReq(req *http.Request, rwc io.ReadWriteCloser)
 			ProtoMajor: 1,
 			ProtoMinor: 1,
 		}
-		res.Write(rwc)
+		_ = res.Write(rwc)
 		return
 	}
-	rwc.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	_, _ = rwc.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
-	frpIo.Join(remote, rwc)
+	libio.Join(remote, rwc)
 }
 
 func copyHeaders(dst, src http.Header) {

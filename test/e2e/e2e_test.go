@@ -6,15 +6,17 @@ import (
 	"os"
 	"testing"
 
+	_ "github.com/onsi/ginkgo/v2"
+
 	"github.com/fatedier/frp/pkg/util/log"
-	"github.com/fatedier/frp/test/e2e/framework"
-
 	// test source
-	_ "github.com/fatedier/frp/test/e2e/basic"
-	_ "github.com/fatedier/frp/test/e2e/features"
-	_ "github.com/fatedier/frp/test/e2e/plugin"
-
-	_ "github.com/onsi/ginkgo"
+	"github.com/fatedier/frp/test/e2e/framework"
+	_ "github.com/fatedier/frp/test/e2e/legacy/basic"
+	_ "github.com/fatedier/frp/test/e2e/legacy/features"
+	_ "github.com/fatedier/frp/test/e2e/legacy/plugin"
+	_ "github.com/fatedier/frp/test/e2e/v1/basic"
+	_ "github.com/fatedier/frp/test/e2e/v1/features"
+	_ "github.com/fatedier/frp/test/e2e/v1/plugin"
 )
 
 // handleFlags sets up all flags and parses the command line.
@@ -32,7 +34,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	log.InitLog("console", "", framework.TestContext.LogLevel, 0, true)
+	log.InitLogger("console", framework.TestContext.LogLevel, 0, true)
 	os.Exit(m.Run())
 }
 

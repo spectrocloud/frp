@@ -16,82 +16,80 @@ package proxy
 
 import (
 	"fmt"
-
-	"github.com/fatedier/frp/pkg/config"
-	"github.com/fatedier/frp/pkg/msg"
+	"reflect"
 
 	"github.com/fatedier/golib/errors"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
 )
+
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&v1.XTCPProxyConfig{}), NewXTCPProxy)
+}
 
 type XTCPProxy struct {
 	*BaseProxy
-	cfg *config.XTCPProxyConf
+	cfg *v1.XTCPProxyConfig
 
 	closeCh chan struct{}
+}
+
+func NewXTCPProxy(baseProxy *BaseProxy) Proxy {
+	unwrapped, ok := baseProxy.GetConfigurer().(*v1.XTCPProxyConfig)
+	if !ok {
+		return nil
+	}
+	return &XTCPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
 
 	if pxy.rc.NatHoleController == nil {
-		xl.Error("udp port for xtcp is not specified.")
 		err = fmt.Errorf("xtcp is not supported in frps")
 		return
 	}
-	sidCh := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk)
+	allowUsers := pxy.cfg.AllowUsers
+	// if allowUsers is empty, only allow same user from proxy
+	if len(allowUsers) == 0 {
+		allowUsers = []string{pxy.GetUserInfo().User}
+	}
+	sidCh, err := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Secretkey, allowUsers)
+	if err != nil {
+		return "", err
+	}
 	go func() {
 		for {
 			select {
 			case <-pxy.closeCh:
-				break
-			case sidRequest := <-sidCh:
-				sr := sidRequest
+				return
+			case sid := <-sidCh:
 				workConn, errRet := pxy.GetWorkConnFromPool(nil, nil)
 				if errRet != nil {
 					continue
 				}
 				m := &msg.NatHoleSid{
-					Sid: sr.Sid,
+					Sid: sid,
 				}
 				errRet = msg.WriteMsg(workConn, m)
 				if errRet != nil {
-					xl.Warn("write nat hole sid package error, %v", errRet)
-					workConn.Close()
-					break
+					xl.Warnf("write nat hole sid package error, %v", errRet)
 				}
-
-				go func() {
-					raw, errRet := msg.ReadMsg(workConn)
-					if errRet != nil {
-						xl.Warn("read nat hole client ok package error: %v", errRet)
-						workConn.Close()
-						return
-					}
-					if _, ok := raw.(*msg.NatHoleClientDetectOK); !ok {
-						xl.Warn("read nat hole client ok package format error")
-						workConn.Close()
-						return
-					}
-
-					select {
-					case sr.NotifyCh <- struct{}{}:
-					default:
-					}
-				}()
+				workConn.Close()
 			}
 		}
 	}()
 	return
 }
 
-func (pxy *XTCPProxy) GetConf() config.ProxyConf {
-	return pxy.cfg
-}
-
 func (pxy *XTCPProxy) Close() {
 	pxy.BaseProxy.Close()
 	pxy.rc.NatHoleController.CloseClient(pxy.GetName())
-	errors.PanicToError(func() {
+	_ = errors.PanicToError(func() {
 		close(pxy.closeCh)
 	})
 }

@@ -1,9 +1,9 @@
 package prometheus
 
 import (
-	"github.com/fatedier/frp/server/metrics"
-
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/fatedier/frp/server/metrics"
 )
 
 const (
@@ -29,11 +29,11 @@ func (m *serverMetrics) CloseClient() {
 	m.clientCount.Dec()
 }
 
-func (m *serverMetrics) NewProxy(name string, proxyType string) {
+func (m *serverMetrics) NewProxy(_ string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Inc()
 }
 
-func (m *serverMetrics) CloseProxy(name string, proxyType string) {
+func (m *serverMetrics) CloseProxy(_ string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Dec()
 }
 

@@ -1,4 +1,4 @@
-export PATH := $(GOPATH)/bin:$(PATH)
+export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
 TARGETARCH ?= amd64
@@ -11,9 +11,12 @@ ifeq ($(FIPS_ENABLE),yes)
 endif
 
 
-all: fmt build
+all: env fmt build
 
 build: frps frpc
+
+env:
+	@go version
 
 # compile assets into binary file
 file:
@@ -25,11 +28,17 @@ file:
 fmt:
 	go fmt ./...
 
+fmt-more:
+	gofumpt -l -w .
+
+gci:
+	gci write -s standard -s default -s "prefix(github.com/fatedier/frp/)" ./
+
 vet:
 	go vet ./...
 
 frps:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags frps -o bin/frps ./cmd/frps
 
 ARCHS ?= amd64 arm64
 
@@ -46,7 +55,7 @@ docker-build-cross-frpc:
 	docker buildx build --platform linux/amd64,linux/arm64 --push . -t ${FRPC_IMG} --build-arg CRYPTO_LIB=${FIPS_ENABLE} -f build/frpc/Dockerfile
 
 frpc:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags frpc -o bin/frpc ./cmd/frpc
 
 docker-frpc:
 	docker buildx build --platform linux/${TARGETARCH} --load . -t ${FRPC_IMG} -f build/frpc/Dockerfile
@@ -67,8 +76,23 @@ e2e:
 e2e-trace:
 	DEBUG=true LOG_LEVEL=trace ./hack/run-e2e.sh
 
+e2e-compatibility-last-frpc:
+	if [ ! -d "./lastversion" ]; then \
+		TARGET_DIRNAME=lastversion ./hack/download.sh; \
+	fi
+	FRPC_PATH="`pwd`/lastversion/frpc" ./hack/run-e2e.sh
+	rm -r ./lastversion
+
+e2e-compatibility-last-frps:
+	if [ ! -d "./lastversion" ]; then \
+		TARGET_DIRNAME=lastversion ./hack/download.sh; \
+	fi
+	FRPS_PATH="`pwd`/lastversion/frps" ./hack/run-e2e.sh
+	rm -r ./lastversion
+
 alltest: vet gotest e2e
 	
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
+	rm -rf ./lastversion
