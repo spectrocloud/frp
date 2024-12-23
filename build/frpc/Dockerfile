@@ -35,7 +35,7 @@ RUN if [ ${CRYPTO_LIB} ]; \
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM --platform=$TARGETPLATFORM gcr.io/distroless/static:latest
+FROM --platform=$TARGETPLATFORM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/frpc .
 
