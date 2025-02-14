@@ -1,6 +1,6 @@
 # Build the manager binary
-
-FROM --platform=$TARGETPLATFORM gcr.io/spectro-images-public/golang:1.19-alpine as builder
+ARG GOLANG_VERSION
+FROM us-docker.pkg.dev/palette-images/build-base-images/golang:${GOLANG_VERSION}-alpine as builder
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -26,16 +26,19 @@ RUN go mod download
 COPY . .
 
 # Build
-RUN if [ ${CRYPTO_LIB} ]; \
+# Build
+RUN --mount=type=cache,sharing=locked,id=gomod,target=/go/pkg/mod/cache \
+    --mount=type=cache,sharing=locked,id=goroot,target=/root/.cache/go-build \
+    if [ ${CRYPTO_LIB} ]; \
     then \
-    CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -ldflags "-linkmode=external -extldflags=-static" -a -o frps cmd/frps/*.go; \
+    go-build-fips.sh -a -o frps cmd/frps/main.go ;\
     else \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o frps cmd/frps/*.go; \
+    go-build-static.sh -a -o frps cmd/frps/main.go ;\
     fi
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM --platform=$TARGETPLATFORM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/frps .
 
