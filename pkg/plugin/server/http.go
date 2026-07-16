@@ -43,7 +43,10 @@ func NewHTTPPluginOptions(options v1.HTTPPluginOptions) Plugin {
 	var client *http.Client
 	if strings.HasPrefix(url, "https://") {
 		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !options.TLSVerify},
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: !options.TLSVerify,
+				MinVersion:         tls.VersionTLS12,
+			},
 		}
 		client = &http.Client{Transport: tr}
 	} else {

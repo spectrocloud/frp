@@ -81,6 +81,7 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 		}
 		s.tlsCfg = &tls.Config{
 			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
 		}
 	}
 	s.authMiddleware = netpkg.NewHTTPAuthMiddleware(cfg.User, cfg.Password).SetAuthFailDelay(200 * time.Millisecond).Middleware
